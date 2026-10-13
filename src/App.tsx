@@ -1,14 +1,16 @@
+//#region Imports
 import { useEffect, useRef, useState } from 'react'
 import axe from 'axe-core'
+import { debugLog } from './lib/debugLog'
+import { isRestrictedUrl } from './lib/restrictedPages'
+import { useTheme } from './hooks/useTheme'
+import { Header } from './components/Header'
+import { UrlField } from './components/UrlField'
+import { ActionButtons } from './components/ActionButtons'
+import { ResultsPanel } from './components/ResultsPanel'
+//#endregion Imports
 
-// DEBUG ONLY: log in the side panel console and forward to the service worker console
-const debugLog = (step: string, data?: unknown) => {
-  console.log('[SidePanel]', step, data ?? '')
-  if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
-    chrome.runtime.sendMessage({ type: 'DEBUG_LOG', step, data }).catch(() => {})
-  }
-}
-
+//#region Types
 // Scan results are kept per-tab in chrome.storage.session so they survive the popup/side panel
 // being closed and reopened (its React tree is torn down and remounted each time), while still
 // being cleared automatically when the browser closes.
@@ -17,20 +19,16 @@ type StoredScanState = {
   axeResults: axe.AxeResults | null
   axeError: string | null
 }
+//#endregion Types
 
+//#region Helpers
 const scanStateStorageKey = (tabId: number) => `scanState_${tabId}`
 
-const hasSessionStorage = (): boolean =>
-  typeof chrome !== 'undefined' && !!chrome?.storage?.session
-
-const impactStyles: Record<string, string> = {
-  critical: 'border-red-200 bg-red-50 text-red-900',
-  serious: 'border-orange-200 bg-orange-50 text-orange-900',
-  moderate: 'border-amber-200 bg-amber-50 text-amber-900',
-  minor: 'border-sky-200 bg-sky-50 text-sky-900',
-}
+const hasSessionStorage = (): boolean => typeof chrome !== 'undefined' && !!chrome?.storage?.session
+//#endregion Helpers
 
 const App = () => {
+  //#region State
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
@@ -39,6 +37,8 @@ const App = () => {
   const [axeResults, setAxeResults] = useState<axe.AxeResults | null>(null)
   const [axeError, setAxeError] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
+  // Current light/dark theme, synced to the document root and persisted on user choice.
+  const { theme, toggleTheme } = useTheme()
 
   // Tracks the tab whose stored scan state has already been loaded, so the save effect below
   // doesn't wipe out persisted results with the initial null/null state before restore finishes.
@@ -46,7 +46,11 @@ const App = () => {
   // Holds the real URL of the active tab (as last fetched from chrome.tabs), independent of the
   // editable "url" input above, so storage matching isn't affected by manual edits to the field.
   const fetchedTabUrlRef = useRef('')
+  // Pending setTimeout ids (copy status resets) so they can be cleared on unmount.
+  const timeoutIdsRef = useRef<number[]>([])
+  //#endregion State
 
+  //#region Effects
   // Restore any previously saved scan results for the active tab (e.g. after the panel was
   // closed and reopened, or after switching back to a tab that was already scanned).
   useEffect(() => {
@@ -91,7 +95,22 @@ const App = () => {
     }
   }, [activeTabId, axeResults, axeError])
 
-  // Safely retrieve the active tab URL from Chrome or browser environment
+  // Attempt to fetch URL on initial load.
+  useEffect(() => {
+    void fetchActiveTabUrl(false)
+  }, [])
+
+  // Clear any pending copy-status timers on unmount so they can't update state afterwards.
+  useEffect(() => {
+    return () => {
+      timeoutIdsRef.current.forEach((id) => window.clearTimeout(id))
+      timeoutIdsRef.current = []
+    }
+  }, [])
+  //#endregion Effects
+
+  //#region Handlers
+  // Safely retrieve the active tab URL from Chrome or browser environment.
   const fetchActiveTabUrl = async (isManual = false): Promise<boolean> => {
     setIsLoading(true)
     setStatusMessage(null)
@@ -138,12 +157,7 @@ const App = () => {
     }
   }
 
-  // Attempt to fetch URL on initial load
-  useEffect(() => {
-    void fetchActiveTabUrl(false)
-  }, [])
-
-  // Handle button click: fetch if empty, copy if URL is present
+  // Handle button click: fetch if empty, copy if URL is present.
   const handleAction = async () => {
     if (!url) {
       await fetchActiveTabUrl(true)
@@ -154,15 +168,17 @@ const App = () => {
       await navigator.clipboard.writeText(url)
       setCopyStatus('copied')
       setStatusMessage('URL copied to clipboard!')
-      setTimeout(() => {
-        setCopyStatus('idle')
-        setStatusMessage(null)
-      }, 2500)
+      timeoutIdsRef.current.push(
+        window.setTimeout(() => {
+          setCopyStatus('idle')
+          setStatusMessage(null)
+        }, 2500),
+      )
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
       setCopyStatus('error')
       setStatusMessage('Unable to copy URL.')
-      setTimeout(() => setCopyStatus('idle'), 3000)
+      timeoutIdsRef.current.push(window.setTimeout(() => setCopyStatus('idle'), 3000))
     }
   }
 
@@ -170,8 +186,12 @@ const App = () => {
   // in headless Chrome), so the result includes passes/incomplete/inapplicable, not just violations.
   const handleScanPage = async () => {
     if (!url) return
-    if (activeTabId == null || typeof chrome === 'undefined' || !chrome?.scripting?.executeScript) {
+    if (typeof chrome === 'undefined' || !chrome?.scripting?.executeScript || !chrome?.tabs?.get) {
       setAxeError('Live page scanning requires the Chrome extension APIs (scripting on an active tab).')
+      return
+    }
+    if (activeTabId == null) {
+      setAxeError('No active tab is available to scan. Try fetching the URL again.')
       return
     }
 
@@ -180,6 +200,19 @@ const App = () => {
     setAxeResults(null)
     debugLog('Scan: started', url)
     try {
+      // Re-check the tab right before scanning: the stored activeTabId can go stale if the tab
+      // was closed or navigated to a different (possibly restricted) page since it was fetched.
+      let tab: chrome.tabs.Tab
+      try {
+        tab = await chrome.tabs.get(activeTabId)
+      } catch {
+        throw new Error('The tab being scanned was closed. Fetch the URL again and retry.')
+      }
+      if (!tab.url) throw new Error('The tab navigated away before the scan could run.')
+      if (isRestrictedUrl(tab.url)) {
+        throw new Error('This page cannot be scanned (browser, extension, store, or PDF pages are restricted).')
+      }
+
       // Load axe-core into the tab's page context (window.axe becomes available there)
       await chrome.scripting.executeScript({
         target: { tabId: activeTabId },
@@ -187,13 +220,19 @@ const App = () => {
       })
 
       // Run axe.run() inside the tab and bring the serializable results back
-      const [injectionResult] = await chrome.scripting.executeScript({
+      const injectionResults = await chrome.scripting.executeScript({
         target: { tabId: activeTabId },
-        func: () => (window as unknown as { axe: typeof axe }).axe.run(),
+        func: () => {
+          const win = window as unknown as { axe?: { run: () => unknown } }
+          if (!win.axe) throw new Error('axe-core did not load on this page.')
+          return win.axe.run()
+        },
       })
 
-      const results = injectionResult?.result as axe.AxeResults | undefined
-      if (!results) throw new Error('No results returned from the page.')
+      const results = injectionResults?.[0]?.result as axe.AxeResults | undefined
+      if (!results || !Array.isArray(results.violations) || !Array.isArray(results.passes)) {
+        throw new Error('No results returned from the page.')
+      }
 
       // Log the analysis results (these show up in the service worker console)
       debugLog('Check: summary', {
@@ -240,181 +279,65 @@ const App = () => {
     }
   }
 
-  // Save the scan results as a results.json file, matching the shape produced by `npx axe --save`
+  // Save the scan results as a results.json file, matching the shape produced by `npx axe --save`.
   const handleSaveResults = () => {
     if (!axeResults) return
-    const blob = new Blob([JSON.stringify([axeResults], null, 2)], { type: 'application/json' })
-    const downloadUrl = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = downloadUrl
-    anchor.download = 'results.json'
-    anchor.click()
-    URL.revokeObjectURL(downloadUrl)
+    let downloadUrl: string | null = null
+    try {
+      const blob = new Blob([JSON.stringify([axeResults], null, 2)], { type: 'application/json' })
+      downloadUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = downloadUrl
+      anchor.download = 'results.json'
+      anchor.click()
+    } catch (error) {
+      setStatusMessage('Unable to save results.json.')
+      debugLog('Save: failed', String(error))
+    } finally {
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl)
+    }
   }
+  //#endregion Handlers
 
+  //#region Render
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f2] p-5 text-slate-900">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.25)] sm:p-8">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-            <svg
-              aria-hidden="true"
-              className="size-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 2.93l-1.72 1.72m2.72 6.35a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21.07l1.72-1.72"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold tracking-tight">Link Pocket</p>
-            <p className="text-xs text-slate-500">Your current page</p>
-          </div>
+    <div className="flex min-h-screen w-full min-w-[320px] flex-col bg-slate-100 text-slate-900 dark:bg-black dark:text-slate-100">
+      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <main className="flex-1 overflow-y-auto px-4 py-4">
+        {/* URL field */}
+        <UrlField
+          url={url}
+          onChange={(value) => {
+            setUrl(value)
+            setCopyStatus('idle')
+          }}
+        />
+
+        {/* Action buttons */}
+        <div className="mt-4">
+          <ActionButtons
+            url={url}
+            isLoading={isLoading}
+            copyStatus={copyStatus}
+            isChecking={isChecking}
+            onAction={handleAction}
+            onScan={handleScanPage}
+          />
         </div>
 
-        <div className="mb-6">
-          <label htmlFor="tab-url-input" className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Page URL
-          </label>
-          <div className="flex min-h-14 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
-            <input
-              id="tab-url-input"
-              type="text"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value)
-                setCopyStatus('idle')
-              }}
-              placeholder="No active page URL available."
-              className="w-full bg-transparent text-sm leading-6 text-slate-700 placeholder-slate-400 focus:outline-none"
-            />
-          </div>
-        </div>
+        {/* Scan results */}
+        <ResultsPanel axeResults={axeResults} axeError={axeError} onSave={handleSaveResults} />
 
-        <div className="flex flex-col-reverse gap-2">
-        <button
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-          type="button"
-          onClick={handleAction}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <svg className="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-              <span>Fetching URL...</span>
-            </>
-          ) : !url ? (
-            <>
-              <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>Fetch URL</span>
-            </>
-          ) : copyStatus === 'copied' ? (
-            <>
-              <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
-              </svg>
-              <span>Copied</span>
-            </>
-          ) : (
-            <>
-              <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
-                <rect width="14" height="14" x="8" y="8" rx="2" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
-              </svg>
-              <span>Copy URL</span>
-            </>
-          )}
-        </button>
-        <button
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
-          type="button"
-          onClick={handleScanPage}
-          disabled={!url || isChecking}
-        >
-          {isChecking ? 'Scanning...' : 'Scan Page'}
-        </button>
-        </div>
-
-        {(axeResults || axeError) && (
-          <div className="mt-4">
-            {axeError && <p className="mb-2 text-xs text-red-600">{axeError}</p>}
-            {axeResults && (
-              <div className="mt-1">
-                <div className="mb-2 flex flex-col items-center justify-between">
-                  <p className="mb-2 w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
-                    Accessibility Results
-                  </p>
-                  <table className="w-full overflow-hidden rounded-xl border border-slate-200 text-left text-xs">
-                    <thead className="bg-slate-800 text-white">
-                      <tr>
-                        <th className="px-3 py-2 font-semibold">Result</th>
-                        <th className="px-3 py-2 text-right font-semibold">Count</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        { label: 'Violations', count: axeResults.violations.length, cls: 'bg-red-50 text-red-800' },
-                        { label: 'Passes', count: axeResults.passes.length, cls: 'bg-emerald-50 text-emerald-800' },
-                        { label: 'Incomplete', count: axeResults.incomplete.length, cls: 'bg-amber-50 text-amber-900' },
-                        { label: 'Inapplicable', count: axeResults.inapplicable.length, cls: 'bg-slate-100 text-slate-700' },
-                      ].map((row) => (
-                        <tr key={row.label} className={`${row.cls} border-t border-white font-semibold`}>
-                          <td className="px-3 py-2">{row.label}</td>
-                          <td className="px-3 py-2 text-right">{row.count}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button
-                    className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 my-2 text-sm font-semibold text-white shadow-sm bg-indigo-700  transition hover:bg-indigo-800"
-                    type="button"
-                    onClick={handleSaveResults}
-                  >
-                    Save results.json
-                  </button>
-                </div>
-                {axeResults.violations.length === 0 ? (
-                  <p className="text-xs text-emerald-700">No violations found.</p>
-                ) : (
-                  <ul className="max-h-64 space-y-2 overflow-auto">
-                    {axeResults.violations.map((v) => (
-                      <li
-                        key={v.id}
-                        className={`rounded-xl border p-3 text-xs ${impactStyles[v.impact ?? 'minor'] ?? impactStyles.minor}`}
-                      >
-                        <p className="font-semibold">
-                          {v.id} <span className="font-normal opacity-80">({v.impact ?? 'n/a'})</span>
-                        </p>
-                        <p>{v.help}</p>
-                        <p className="mt-1 opacity-80">{v.nodes.length} affected element(s)</p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        <p aria-live="polite" className="mt-3 min-h-5 text-center text-xs text-slate-500">
+        {/* Status announcements */}
+        <p aria-live="polite" className="mt-3 min-h-5 text-center text-xs text-slate-500 dark:text-slate-400">
           {copyStatus === 'copied' && 'Link copied to your clipboard.'}
           {copyStatus === 'error' && 'Could not copy the link. Please try again.'}
           {!copyStatus.includes('cop') && statusMessage}
         </p>
-      </section>
-    </main>
+      </main>
+    </div>
   )
+  //#endregion Render
 }
 
 export default App

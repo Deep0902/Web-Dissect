@@ -1,7 +1,15 @@
 {
   "manifest_version": 3,
   "version": "1.0.0",
-  "name": "Deep's Chrome Extension Template",
+  "name": "Web Dissect 🧐🕸️",
+  "short_name": "Web Dissect",
+  "description": "Scan any webpage for accessibility (a11y) issues with axe-core. Detect WCAG violations and get instant audit reports.",
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "96": "icon.png",
+    "128": "icon.png"
+  },
   "background": {
     "service_worker": "background.js"
   },
@@ -29,7 +37,13 @@
     }
   },
   "action": {
-    "default_popup": "index.html"
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "96": "icon.png"
+    },
+    "default_title": "Web Dissect \u2014 Accessibility Scanner"
   },
   "side_panel": {
     "default_path": "index.html"
