@@ -1,157 +1,324 @@
-const features = [
-  {
-    number: "01",
-    title: "Popup",
-    description: "A polished popup for quick actions right from the toolbar.",
-    tag: "Interface",
-  },
-  {
-    number: "02",
-    title: "Side panel",
-    description: "Give your extension a roomy home alongside any webpage.",
-    tag: "Interface",
-  },
-  {
-    number: "03",
-    title: "Hotkey commands",
-    description: "Trigger useful extension actions with keyboard shortcuts.",
-    tag: "Shortcuts",
-  },
-  {
-    number: "04",
-    title: "Background service worker",
-    description: "Run extension logic in the background when you need it.",
-    tag: "Runtime",
-  },
-  {
-    number: "05",
-    title: "Content scripts",
-    description: "Read and enhance page content directly in the DOM.",
-    tag: "Web pages",
-  },
-  {
-    number: "06",
-    title: "Page context menu",
-    description: "Add helpful actions to the browser's right-click menu.",
-    tag: "Browser API",
-  },
-  {
-    number: "07",
-    title: "Selection context menu",
-    description: "Make selected text actionable with a custom menu item.",
-    tag: "Browser API",
-  },
-];
+import { useEffect, useState } from 'react'
+import axe from 'axe-core'
 
-function App() {
-  return (
-    <main className="relative isolate min-h-screen overflow-hidden bg-[#f7f8f5] text-slate-900">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(ellipse_at_50%_-10%,rgba(174,243,202,0.55),transparent_65%)]"
-      />
-
-      <div className="mx-auto max-w-6xl px-6 pb-16 pt-7 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between">
-          <a href="#" className="flex items-center gap-3" aria-label="Handmade home">
-            <span className="grid size-10 place-items-center rounded-xl bg-slate-900 text-emerald-300 shadow-lg shadow-slate-900/10">
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                className="size-5"
-              >
-                <path
-                  d="M5 19V5l14 14V5"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-            <span className="text-sm font-semibold tracking-tight">handmade<span className="text-emerald-600">.</span></span>
-          </a>
-          <span className="hidden items-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3.5 py-2 text-xs font-medium text-slate-600 shadow-sm sm:inline-flex">
-            <span className="size-1.5 rounded-full bg-emerald-500" />
-            Built for Chrome
-          </span>
-        </header>
-
-        <section className="mx-auto max-w-3xl pb-14 pt-20 text-center sm:pt-28">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-white/70 px-3.5 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm shadow-emerald-900/[0.03]">
-            <span className="grid size-5 place-items-center rounded-full bg-emerald-100">
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-3">
-                <path d="m5 10 3.2 3.2L15.5 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            Your next idea starts here
-          </div>
-          <h1 className="text-4xl font-semibold tracking-[-0.055em] text-slate-950 sm:text-6xl sm:leading-[1.08]">
-            Make something
-            <span className="block text-emerald-700">useful for the web.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
-            A thoughtfully assembled Chrome extension starter, powered by React,
-            TypeScript, and Vite. Skip the setup and get straight to building.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            {["React 19", "TypeScript", "Vite"].map((technology) => (
-              <span
-                key={technology}
-                className="rounded-md border border-slate-200/80 bg-white/70 px-2.5 py-1 font-mono text-xs text-slate-600"
-              >
-                {technology}
-              </span>
-            ))}
-          </div>
-        </section>
-
-        <section aria-labelledby="features-heading">
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <div>
-              <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                Ready out of the box
-              </p>
-              <h2 id="features-heading" className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
-                Everything you need to get going
-              </h2>
-            </div>
-            <span className="shrink-0 pb-1 text-sm text-slate-500">07 features</span>
-          </div>
-
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <li
-                key={feature.number}
-                className="group rounded-2xl border border-slate-200/80 bg-white/80 p-5 shadow-sm shadow-slate-900/[0.025] transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-white hover:shadow-md hover:shadow-slate-900/[0.06]"
-              >
-                <div className="mb-7 flex items-center justify-between">
-                  <span className="grid size-9 place-items-center rounded-xl bg-emerald-50 text-emerald-700 transition-colors group-hover:bg-emerald-100">
-                    <span className="font-mono text-xs font-semibold">{feature.number}</span>
-                  </span>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-medium tracking-wide text-slate-500">
-                    {feature.tag}
-                  </span>
-                </div>
-                <h3 className="text-[15px] font-semibold tracking-tight text-slate-900">
-                  {feature.title}
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-slate-500">
-                  {feature.description}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <footer className="mt-12 flex flex-col items-center justify-between gap-3 border-t border-slate-200/80 pt-6 text-xs text-slate-500 sm:flex-row">
-          <p>Made for makers. Built to be yours.</p>
-          <p className="font-mono">Chrome Extension Template</p>
-        </footer>
-      </div>
-    </main>
-  );
+// DEBUG ONLY: log in the side panel console and forward to the service worker console
+const debugLog = (step: string, data?: unknown) => {
+  console.log('[SidePanel]', step, data ?? '')
+  if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
+    chrome.runtime.sendMessage({ type: 'DEBUG_LOG', step, data }).catch(() => {})
+  }
 }
 
-export default App;
+const App = () => {
+  const [url, setUrl] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [activeTabId, setActiveTabId] = useState<number | null>(null)
+  const [axeResults, setAxeResults] = useState<axe.AxeResults | null>(null)
+  const [axeError, setAxeError] = useState<string | null>(null)
+  const [isChecking, setIsChecking] = useState(false)
+
+  // Safely retrieve the active tab URL from Chrome or browser environment
+  const fetchActiveTabUrl = async (isManual = false): Promise<boolean> => {
+    setIsLoading(true)
+    setStatusMessage(null)
+
+    try {
+      // 1. Check if Chrome extension tabs API is available
+      if (typeof chrome !== 'undefined' && chrome?.tabs?.query) {
+        // Query active tab in the current window first (standard for popups)
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+        let activeTab = tabs[0]
+
+        // Fallback to last focused window (helpful for side panels or detached devtools)
+        if (!activeTab?.url) {
+          const focusedTabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true })
+          activeTab = focusedTabs[0]
+        }
+
+        if (activeTab?.url) {
+          setUrl(activeTab.url)
+          setActiveTabId(activeTab.id ?? null)
+          setStatusMessage(null)
+          return true
+        }
+
+        throw new Error('No active URL found for this tab.')
+      }
+
+      // 2. Fallback for testing in a regular browser (Vite dev server)
+      if (isManual && typeof window !== 'undefined' && window.location?.href) {
+        setUrl(window.location.href)
+        setActiveTabId(null)
+        setStatusMessage('Loaded current browser preview URL')
+        return true
+      }
+
+      throw new Error('Chrome tabs API unavailable in this environment.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch tab URL'
+      setStatusMessage(message)
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Attempt to fetch URL on initial load
+  useEffect(() => {
+    void fetchActiveTabUrl(false)
+  }, [])
+
+  // Handle button click: fetch if empty, copy if URL is present
+  const handleAction = async () => {
+    if (!url) {
+      await fetchActiveTabUrl(true)
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopyStatus('copied')
+      setStatusMessage('URL copied to clipboard!')
+      setTimeout(() => {
+        setCopyStatus('idle')
+        setStatusMessage(null)
+      }, 2500)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+      setCopyStatus('error')
+      setStatusMessage('Unable to copy URL.')
+      setTimeout(() => setCopyStatus('idle'), 3000)
+    }
+  }
+
+  // Inject axe-core into the live tab and run a full scan there (same approach the axe CLI uses
+  // in headless Chrome), so the result includes passes/incomplete/inapplicable, not just violations.
+  const handleScanPage = async () => {
+    if (!url) return
+    if (activeTabId == null || typeof chrome === 'undefined' || !chrome?.scripting?.executeScript) {
+      setAxeError('Live page scanning requires the Chrome extension APIs (scripting on an active tab).')
+      return
+    }
+
+    setIsChecking(true)
+    setAxeError(null)
+    setAxeResults(null)
+    debugLog('Scan: started', url)
+    try {
+      // Load axe-core into the tab's page context (window.axe becomes available there)
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTabId },
+        files: ['axe.min.js'],
+      })
+
+      // Run axe.run() inside the tab and bring the serializable results back
+      const [injectionResult] = await chrome.scripting.executeScript({
+        target: { tabId: activeTabId },
+        func: () => (window as unknown as { axe: typeof axe }).axe.run(),
+      })
+
+      const results = injectionResult?.result as axe.AxeResults | undefined
+      if (!results) throw new Error('No results returned from the page.')
+
+      // Log the analysis results (these show up in the service worker console)
+      debugLog('Check: summary', {
+        url: results.url,
+        axeVersion: results.testEngine?.version,
+        violations: results.violations.length,
+        incomplete: results.incomplete.length,
+        passes: results.passes.length,
+        inapplicable: results.inapplicable.length,
+      })
+      debugLog(
+        'Check: violations overview',
+        results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          help: v.help,
+          affectedElements: v.nodes.length,
+        })),
+      )
+      debugLog(
+        'Check: violations detail',
+        results.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          help: v.help,
+          helpUrl: v.helpUrl,
+          nodes: v.nodes.map((n) => ({ target: n.target, html: n.html, failureSummary: n.failureSummary })),
+        })),
+      )
+      debugLog(
+        'Check: incomplete (needs manual review)',
+        results.incomplete.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.length })),
+      )
+      debugLog(
+        'Check: passed rules',
+        results.passes.map((r) => r.id),
+      )
+      setAxeResults(results)
+    } catch (error) {
+      setAxeError(error instanceof Error ? error.message : 'Accessibility scan failed')
+      debugLog('Scan: failed', String(error))
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
+  // Save the scan results as a results.json file, matching the shape produced by `npx axe --save`
+  const handleSaveResults = () => {
+    if (!axeResults) return
+    const blob = new Blob([JSON.stringify([axeResults], null, 2)], { type: 'application/json' })
+    const downloadUrl = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = downloadUrl
+    anchor.download = 'results.json'
+    anchor.click()
+    URL.revokeObjectURL(downloadUrl)
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f4f6f2] p-5 text-slate-900">
+      <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.25)] sm:p-8">
+        <div className="mb-8 flex items-center gap-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+            <svg
+              aria-hidden="true"
+              className="size-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 2.93l-1.72 1.72m2.72 6.35a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21.07l1.72-1.72"
+              />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold tracking-tight">Link Pocket</p>
+            <p className="text-xs text-slate-500">Your current page</p>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <label htmlFor="tab-url-input" className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+            Page URL
+          </label>
+          <div className="flex min-h-14 items-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2">
+            <input
+              id="tab-url-input"
+              type="text"
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value)
+                setCopyStatus('idle')
+              }}
+              placeholder="No active page URL available."
+              className="w-full bg-transparent text-sm leading-6 text-slate-700 placeholder-slate-400 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+        <button
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          type="button"
+          onClick={handleAction}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <svg className="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span>Fetching URL...</span>
+            </>
+          ) : !url ? (
+            <>
+              <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Fetch URL</span>
+            </>
+          ) : copyStatus === 'copied' ? (
+            <>
+              <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+              </svg>
+              <span>Copied</span>
+            </>
+          ) : (
+            <>
+              <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+                <rect width="14" height="14" x="8" y="8" rx="2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+              </svg>
+              <span>Copy URL</span>
+            </>
+          )}
+        </button>
+        <button
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+          type="button"
+          onClick={handleScanPage}
+          disabled={!url || isChecking}
+        >
+          {isChecking ? 'Scanning...' : 'Scan Page'}
+        </button>
+        </div>
+
+        {(axeResults || axeError) && (
+          <div className="mt-4">
+            {axeError && <p className="mb-2 text-xs text-red-600">{axeError}</p>}
+            {axeResults && (
+              <div className="mt-1">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Accessibility Results ({axeResults.violations.length} violations, {axeResults.passes.length} passes,{' '}
+                    {axeResults.incomplete.length} incomplete, {axeResults.inapplicable.length} inapplicable)
+                  </p>
+                  <button
+                    className="shrink-0 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-800"
+                    type="button"
+                    onClick={handleSaveResults}
+                  >
+                    Save results.json
+                  </button>
+                </div>
+                {axeResults.violations.length === 0 ? (
+                  <p className="text-xs text-emerald-700">No violations found.</p>
+                ) : (
+                  <ul className="max-h-64 space-y-2 overflow-auto">
+                    {axeResults.violations.map((v) => (
+                      <li key={v.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                        <p className="font-semibold">
+                          {v.id} <span className="font-normal text-slate-500">({v.impact ?? 'n/a'})</span>
+                        </p>
+                        <p>{v.help}</p>
+                        <p className="mt-1 text-slate-500">{v.nodes.length} affected element(s)</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        <p aria-live="polite" className="mt-3 min-h-5 text-center text-xs text-slate-500">
+          {copyStatus === 'copied' && 'Link copied to your clipboard.'}
+          {copyStatus === 'error' && 'Could not copy the link. Please try again.'}
+          {!copyStatus.includes('cop') && statusMessage}
+        </p>
+      </section>
+    </main>
+  )
+}
+
+export default App

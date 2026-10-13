@@ -31,6 +31,13 @@ export default chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// DEBUG ONLY: print logs forwarded from the side panel
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === "DEBUG_LOG") {
+    console.log("[SidePanel]", message.step, message.data ?? "");
+  }
+});
+
 chrome.commands.onCommand.addListener((command) => {
   if (command === "open_side_panel") {
     chrome.windows.getCurrent((w) => {
