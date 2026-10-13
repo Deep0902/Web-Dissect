@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import axe from 'axe-core'
 
 // DEBUG ONLY: log in the side panel console and forward to the service worker console
@@ -7,6 +7,27 @@ const debugLog = (step: string, data?: unknown) => {
   if (typeof chrome !== 'undefined' && chrome?.runtime?.sendMessage) {
     chrome.runtime.sendMessage({ type: 'DEBUG_LOG', step, data }).catch(() => {})
   }
+}
+
+// Scan results are kept per-tab in chrome.storage.session so they survive the popup/side panel
+// being closed and reopened (its React tree is torn down and remounted each time), while still
+// being cleared automatically when the browser closes.
+type StoredScanState = {
+  url: string
+  axeResults: axe.AxeResults | null
+  axeError: string | null
+}
+
+const scanStateStorageKey = (tabId: number) => `scanState_${tabId}`
+
+const hasSessionStorage = (): boolean =>
+  typeof chrome !== 'undefined' && !!chrome?.storage?.session
+
+const impactStyles: Record<string, string> = {
+  critical: 'border-red-200 bg-red-50 text-red-900',
+  serious: 'border-orange-200 bg-orange-50 text-orange-900',
+  moderate: 'border-amber-200 bg-amber-50 text-amber-900',
+  minor: 'border-sky-200 bg-sky-50 text-sky-900',
 }
 
 const App = () => {
@@ -18,6 +39,57 @@ const App = () => {
   const [axeResults, setAxeResults] = useState<axe.AxeResults | null>(null)
   const [axeError, setAxeError] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
+
+  // Tracks the tab whose stored scan state has already been loaded, so the save effect below
+  // doesn't wipe out persisted results with the initial null/null state before restore finishes.
+  const hydratedTabIdRef = useRef<number | null>(null)
+  // Holds the real URL of the active tab (as last fetched from chrome.tabs), independent of the
+  // editable "url" input above, so storage matching isn't affected by manual edits to the field.
+  const fetchedTabUrlRef = useRef('')
+
+  // Restore any previously saved scan results for the active tab (e.g. after the panel was
+  // closed and reopened, or after switching back to a tab that was already scanned).
+  useEffect(() => {
+    if (activeTabId == null || !hasSessionStorage()) return
+
+    let cancelled = false
+    const key = scanStateStorageKey(activeTabId)
+
+    chrome.storage.session
+      .get(key)
+      .then((result) => {
+        if (cancelled) return
+        const saved = result[key] as StoredScanState | undefined
+        // Only restore results if they match the tab's current URL, so a stale scan from a
+        // previous page isn't shown after the tab has navigated elsewhere.
+        if (saved && saved.url === fetchedTabUrlRef.current) {
+          setAxeResults(saved.axeResults)
+          setAxeError(saved.axeError)
+        }
+      })
+      .catch((error) => debugLog('Restore: failed', String(error)))
+      .finally(() => {
+        if (!cancelled) hydratedTabIdRef.current = activeTabId
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTabId])
+
+  // Persist scan results for the active tab whenever they change, so they can be restored later.
+  useEffect(() => {
+    if (activeTabId == null || !hasSessionStorage()) return
+    if (hydratedTabIdRef.current !== activeTabId) return
+
+    const key = scanStateStorageKey(activeTabId)
+    if (axeResults || axeError) {
+      const toStore: StoredScanState = { url: fetchedTabUrlRef.current, axeResults, axeError }
+      chrome.storage.session.set({ [key]: toStore }).catch((error) => debugLog('Persist: failed', String(error)))
+    } else {
+      chrome.storage.session.remove(key).catch((error) => debugLog('Persist: remove failed', String(error)))
+    }
+  }, [activeTabId, axeResults, axeError])
 
   // Safely retrieve the active tab URL from Chrome or browser environment
   const fetchActiveTabUrl = async (isManual = false): Promise<boolean> => {
@@ -38,6 +110,7 @@ const App = () => {
         }
 
         if (activeTab?.url) {
+          fetchedTabUrlRef.current = activeTab.url
           setUrl(activeTab.url)
           setActiveTabId(activeTab.id ?? null)
           setStatusMessage(null)
@@ -224,7 +297,7 @@ const App = () => {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col-reverse gap-2">
         <button
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           type="button"
@@ -278,13 +351,33 @@ const App = () => {
             {axeError && <p className="mb-2 text-xs text-red-600">{axeError}</p>}
             {axeResults && (
               <div className="mt-1">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Accessibility Results ({axeResults.violations.length} violations, {axeResults.passes.length} passes,{' '}
-                    {axeResults.incomplete.length} incomplete, {axeResults.inapplicable.length} inapplicable)
+                <div className="mb-2 flex flex-col items-center justify-between">
+                  <p className="mb-2 w-full text-xs font-semibold uppercase tracking-[0.14em] text-slate-700">
+                    Accessibility Results
                   </p>
+                  <table className="w-full overflow-hidden rounded-xl border border-slate-200 text-left text-xs">
+                    <thead className="bg-slate-800 text-white">
+                      <tr>
+                        <th className="px-3 py-2 font-semibold">Result</th>
+                        <th className="px-3 py-2 text-right font-semibold">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Violations', count: axeResults.violations.length, cls: 'bg-red-50 text-red-800' },
+                        { label: 'Passes', count: axeResults.passes.length, cls: 'bg-emerald-50 text-emerald-800' },
+                        { label: 'Incomplete', count: axeResults.incomplete.length, cls: 'bg-amber-50 text-amber-900' },
+                        { label: 'Inapplicable', count: axeResults.inapplicable.length, cls: 'bg-slate-100 text-slate-700' },
+                      ].map((row) => (
+                        <tr key={row.label} className={`${row.cls} border-t border-white font-semibold`}>
+                          <td className="px-3 py-2">{row.label}</td>
+                          <td className="px-3 py-2 text-right">{row.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                   <button
-                    className="shrink-0 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-800"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 my-2 text-sm font-semibold text-white shadow-sm bg-indigo-700  transition hover:bg-indigo-800"
                     type="button"
                     onClick={handleSaveResults}
                   >
@@ -296,12 +389,15 @@ const App = () => {
                 ) : (
                   <ul className="max-h-64 space-y-2 overflow-auto">
                     {axeResults.violations.map((v) => (
-                      <li key={v.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                      <li
+                        key={v.id}
+                        className={`rounded-xl border p-3 text-xs ${impactStyles[v.impact ?? 'minor'] ?? impactStyles.minor}`}
+                      >
                         <p className="font-semibold">
-                          {v.id} <span className="font-normal text-slate-500">({v.impact ?? 'n/a'})</span>
+                          {v.id} <span className="font-normal opacity-80">({v.impact ?? 'n/a'})</span>
                         </p>
                         <p>{v.help}</p>
-                        <p className="mt-1 text-slate-500">{v.nodes.length} affected element(s)</p>
+                        <p className="mt-1 opacity-80">{v.nodes.length} affected element(s)</p>
                       </li>
                     ))}
                   </ul>
