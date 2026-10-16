@@ -1,16 +1,18 @@
-const handleOnPageClick = (info: any, tab: any) => {
-  console.log("Context Info: ", info);
-  console.log("Context Tab: ", tab);
-};
+// const handleOnPageClick = (info: any, tab: any) => {
+//   console.log("Context Info: ", info);
+//   console.log("Context Tab: ", tab);
+// };
 
-const handleOnSelectionClick = (info: any, tab: any) => {
-  console.log("Context Info: ", info);
-  console.log("Context Tab: ", tab);
-};
+// const handleOnSelectionClick = (info: any, tab: any) => {
+//   console.log("Context Info: ", info);
+//   console.log("Context Tab: ", tab);
+// };
 
 export default chrome.runtime.onInstalled.addListener(() => {
   console.log("Background Service Worker working...");
 
+  // Temporarily disabled; restore this block to re-enable the page and selection menu options.
+  /*
   chrome.contextMenus.create({
     id: "some-id-page",
     title: "New Menu Option - Page",
@@ -29,6 +31,7 @@ export default chrome.runtime.onInstalled.addListener(() => {
 
     if (menuItemId === "some-id-selection") handleOnSelectionClick(info, tab);
   });
+  */
 });
 
 // DEBUG ONLY: print logs forwarded from the side panel

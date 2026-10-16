@@ -5,8 +5,8 @@
   "type": "module",
   "description": "A base Chrome Extension project, using React to bring your ideas to reality.",
   "author": {
-    "name": "James Privett",
-    "url": "https://www.handmadesoftware.dev/"
+    "name": "Deep Rakesh",
+    "url": "https://deeprakesh.vercel.app/about"
   },
   "scripts": {
     "dev": "vite",
