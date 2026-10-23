@@ -2,7 +2,7 @@
 
 Web Dissect is a Chrome extension that checks the currently open webpage for automatically detectable accessibility issues. It runs [axe-core](https://github.com/dequelabs/axe-core) in the page and displays a summary of violations, passes, checks that need manual review, and checks that do not apply.
 
-> **Official Chrome Web Store listing:** [Add the published extension link here](https://chromewebstore.google.com/)
+> **Official Chrome Web Store listing:** [Click here](https://chromewebstore.google.com/detail/web-dissect-%F0%9F%94%8D%F0%9F%95%B8%EF%B8%8F/nhbilkjaiofccckmmddimhigdpiglcia)
 >
 > Replace the link above with the extension's direct Chrome Web Store listing URL when it is published.
 
@@ -47,7 +47,7 @@ Once the extension is published, use the official listing link at the top of thi
 
 ### Install a local build
 
-1. Download or clone this repository and build it (see [Build from source](#build-from-source)).
+1. Download or clone this repository and build it.
 2. In Chrome, open `chrome://extensions`.
 3. Turn on **Developer mode**.
 4. Choose **Load unpacked** and select the repository's `dist` folder.
